@@ -1,21 +1,102 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { fetchCustomer, fetchCustomerUsage } from "@/lib/api/customers";
+import { useParams } from "next/navigation";
+import type { Customer, CustomerUsage } from "@/types/customer";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeftIcon } from "lucide-react";
+import { clientFetch } from "@/lib/api/client-browser";
 
-interface CustomerDetailPageProps {
-  params: Promise<{ id: string }>;
-}
+export default function CustomerDetailPage() {
+  const params = useParams();
+  const id = typeof params?.id === "string" ? params.id : "";
+  const [customer, setCustomer] = useState<Customer | null>(null);
+  const [usage, setUsage] = useState<CustomerUsage | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
-export default async function CustomerDetailPage({ params }: CustomerDetailPageProps) {
-  const { id } = await params;
-  const [customer, usage] = await Promise.all([
-    fetchCustomer(id),
-    fetchCustomerUsage(id),
-  ]);
-  if (!customer) notFound();
+  useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setNotFound(false);
+    clientFetch<Customer>(`/api/customers/${encodeURIComponent(id)}`)
+      .then((c) => {
+        if (cancelled) return;
+        setCustomer(c);
+        return clientFetch<CustomerUsage>(`/api/customers/${encodeURIComponent(id)}/usage`).then((u) => {
+          if (!cancelled) setUsage(u);
+        });
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          const status = (e as { status?: number }).status;
+          if (status === 404) setNotFound(true);
+          else setError(e instanceof Error ? e.message : "Failed to load customer.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/customers" aria-label="Back to customers">
+              <ArrowLeftIcon className="h-4 w-4" />
+            </Link>
+          </Button>
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (notFound || !customer) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/customers" aria-label="Back to customers">
+              <ArrowLeftIcon className="h-4 w-4" />
+            </Link>
+          </Button>
+          <p className="text-sm text-muted-foreground">Customer not found.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/customers" aria-label="Back to customers">
+              <ArrowLeftIcon className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+            {error}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -79,7 +160,7 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Usage data not available. Backend GET /api/v1/customers/{id}/usage can provide this.
+              Usage data not available.
             </p>
           )}
         </CardContent>

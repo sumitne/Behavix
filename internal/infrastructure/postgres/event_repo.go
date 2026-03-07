@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"time"
 
 	"behavix-ai/internal/domain/event"
 
@@ -97,6 +98,21 @@ func (r *EventRepository) List(ctx context.Context, tenantID uuid.UUID, limit in
 		out = append(out, rec)
 	}
 	return out, rows.Err()
+}
+
+// TenantStats returns active user count, total events count, and latest activity time for a tenant.
+func (r *EventRepository) TenantStats(ctx context.Context, tenantID uuid.UUID) (event.TenantStats, error) {
+	var stats event.TenantStats
+	var lastActivity *time.Time
+	err := r.pool.QueryRow(ctx,
+		`SELECT COUNT(DISTINCT user_id), COUNT(*), MAX(received_at) FROM events WHERE tenant_id = $1`,
+		tenantID,
+	).Scan(&stats.ActiveUsers, &stats.EventsCount, &lastActivity)
+	if err != nil {
+		return event.TenantStats{}, err
+	}
+	stats.LastActivity = lastActivity
+	return stats, nil
 }
 
 // Compile-time check that EventRepository implements event.Repository.

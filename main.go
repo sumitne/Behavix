@@ -11,6 +11,7 @@ import (
 
 	"behavix-ai/internal/app"
 	"behavix-ai/internal/config"
+	httpcustomer "behavix-ai/internal/infrastructure/http/customer"
 	httpeventsdebug "behavix-ai/internal/infrastructure/http/eventsdebug"
 	httpingestion "behavix-ai/internal/infrastructure/http/ingestion"
 	httpinsight "behavix-ai/internal/infrastructure/http/insight"
@@ -58,16 +59,18 @@ func runServer() {
 	ingestionSvc := serviceingestion.NewService(eventRepo)
 	insightSvc := serviceinsight.NewService(insightRepo)
 	ingestionHandler := httpingestion.NewHandler(ingestionSvc)
-	insightHandler := httpinsight.NewHandler(insightSvc)
+	insightHandler := httpinsight.NewHandler(insightSvc, tenantRepo)
 	eventsDebugHandler := httpeventsdebug.NewHandler(eventRepo)
+	customerHandler := httpcustomer.NewHandler(tenantRepo, eventRepo)
 
 	router := httpserver.NewRouter(httpserver.RouterConfig{
-		Logger:         log,
-		EventIngestion: ingestionHandler,
-		EventList:      eventsDebugHandler,
-		InsightList:    insightHandler,
-		TenantRepo:     tenantRepo,
-		UseTenantAuth:  true,
+		Logger:          log,
+		EventIngestion:  ingestionHandler,
+		EventList:       eventsDebugHandler,
+		InsightList:     insightHandler,
+		CustomerHandler: customerHandler,
+		TenantRepo:      tenantRepo,
+		UseTenantAuth:   true,
 	})
 
 	srv := &http.Server{

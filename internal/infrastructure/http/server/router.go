@@ -15,6 +15,7 @@ type RouterConfig struct {
 	EventIngestion  EventIngestionHandler
 	EventList       EventListHandler
 	InsightList     InsightListHandler
+	CustomerHandler CustomerHandler
 	TenantRepo      tenant.Repository
 	UseTenantAuth   bool
 }
@@ -32,6 +33,13 @@ type EventListHandler interface {
 // InsightListHandler handles GET /api/v1/insights.
 type InsightListHandler interface {
 	List(c *gin.Context)
+}
+
+// CustomerHandler handles GET /api/v1/customers, GET /api/v1/customers/:id, GET /api/v1/customers/:id/usage.
+type CustomerHandler interface {
+	List(c *gin.Context)
+	Get(c *gin.Context)
+	Usage(c *gin.Context)
 }
 
 // NewRouter builds the Gin router with health, versioned API, and middleware.
@@ -56,6 +64,11 @@ func NewRouter(cfg RouterConfig) *gin.Engine {
 	}
 	if cfg.InsightList != nil {
 		v1.GET("/insights", cfg.InsightList.List)
+	}
+	if cfg.CustomerHandler != nil {
+		v1.GET("/customers", cfg.CustomerHandler.List)
+		v1.GET("/customers/:id", cfg.CustomerHandler.Get)
+		v1.GET("/customers/:id/usage", cfg.CustomerHandler.Usage)
 	}
 
 	return r

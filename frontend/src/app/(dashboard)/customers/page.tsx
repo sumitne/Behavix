@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fetchCustomers } from "@/lib/api/customers";
+import type { Customer } from "@/types/customer";
+import { clientFetch } from "@/lib/api/client-browser";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -8,8 +12,63 @@ function formatDate(iso: string): string {
   });
 }
 
-export default async function CustomersPage() {
-  let customers = await fetchCustomers();
+export default function CustomersPage() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    clientFetch<Customer[]>("/api/customers")
+      .then((data) => {
+        if (!cancelled) {
+          setCustomers(Array.isArray(data) ? data : []);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load customers.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Customers</h2>
+          <p className="text-sm text-muted-foreground">
+            Health scores, active users, and last activity.
+          </p>
+        </div>
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Customers</h2>
+          <p className="text-sm text-muted-foreground">
+            Health scores, active users, and last activity.
+          </p>
+        </div>
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -33,7 +92,7 @@ export default async function CustomersPage() {
             {customers.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                  No customers yet. Add GET /api/v1/customers on the backend to list customers.
+                  No customers yet.
                 </td>
               </tr>
             ) : (

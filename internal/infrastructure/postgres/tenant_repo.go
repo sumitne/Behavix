@@ -45,5 +45,18 @@ func (r *TenantRepository) GetByAPIKey(ctx context.Context, apiKey string) (*ten
 	return &t, nil
 }
 
+// GetByID returns the tenant for the given ID.
+func (r *TenantRepository) GetByID(ctx context.Context, id uuid.UUID) (*tenant.Tenant, error) {
+	var t tenant.Tenant
+	err := r.pool.QueryRow(ctx,
+		`SELECT id, name, api_key, created_at FROM tenants WHERE id = $1`,
+		id,
+	).Scan(&t.ID, &t.Name, &t.APIKey, &t.CreatedAt)
+	if err != nil {
+		return nil, ErrTenantNotFound
+	}
+	return &t, nil
+}
+
 // Compile-time check that TenantRepository implements tenant.Repository.
 var _ tenant.Repository = (*TenantRepository)(nil)
